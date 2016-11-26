@@ -1,0 +1,8 @@
+.idea/*
+.idea/
+hw*
+gmon.out
+*.txt
+outputs/*
+simple2
+cmake-build-debug/*
