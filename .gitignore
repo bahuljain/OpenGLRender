@@ -6,3 +6,4 @@ gmon.out
 outputs/*
 simple2
 cmake-build-debug/*
+glrender

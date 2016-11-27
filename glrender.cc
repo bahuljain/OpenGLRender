@@ -112,7 +112,7 @@ void tri(vec4 vertices[], point4 points[], color4 colors[], int NumVertices) {
             vec4_sub(light_vec, light_position, points[index]);
             vec4_norm(light_vec, light_vec);
 
-            float dd1 = vec4_mul_inner(light_position, n);
+            float dd1 = vec4_mul_inner(light_vec, n);
             if (dd1 > 0.0)
                 vec4_scale(diffuse_color, diffuse_product, dd1);
 
@@ -127,7 +127,7 @@ void tri(vec4 vertices[], point4 points[], color4 colors[], int NumVertices) {
 
             if (dd2 > 0.0)
                 vec4_scale(specular_color, spec_product,
-                           exp(material_shininess * log(dd1)));
+                           exp(material_shininess * log(dd2)));
 
             vec4_add(colors[index], ambient_color, diffuse_color);
             vec4_add(colors[index], colors[index], specular_color);
