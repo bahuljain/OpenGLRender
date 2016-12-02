@@ -12,7 +12,6 @@ uniform float material_shininess;
 
 uniform vec4 viewer;
 
-uniform mat4 MVP;
 uniform mat4 V;
 uniform mat4 P;
 
@@ -42,7 +41,7 @@ void main()
     vec4 final_color = ambient_color + diffuse_color + specular_color;
     final_color[3] = 1.0;
 
-    gl_Position = MVP * vPos;
+    gl_Position = P * V * vPos;
     color = final_color;
 }
 

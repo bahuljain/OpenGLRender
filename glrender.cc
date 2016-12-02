@@ -39,7 +39,7 @@ float material_shininess = 100.0;
 
 // "names" for the various buffers, shaders, programs etc:
 GLuint vertex_buffer, program;
-GLint mvp_location, vpos_location, vnorm_location, viewer_location;
+GLint p_location, v_location, vpos_location, vnorm_location, viewer_location;
 GLint ld_location, ls_location, la_location, lp_location;
 GLint md_location, ms_location, ma_location, mshiny_location;
 
@@ -101,7 +101,7 @@ key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {
         glfwSetWindowShouldClose(window, GLFW_TRUE);
 
     if (key == GLFW_KEY_X && action == GLFW_PRESS)
-        r = fmaxf(-100f, r - 0.5f);
+        r = fmaxf(-100, r - 0.5f);
 
     if (key == GLFW_KEY_Z && action == GLFW_PRESS)
         r = fminf(-0.5f, r + 0.5f);
@@ -133,7 +133,8 @@ void init(int points_size, int colors_size) {
     glUseProgram(program);
 
     // get acces to the various things we will be sending to the shaders:
-    mvp_location = glGetUniformLocation(program, "MVP");
+    v_location = glGetUniformLocation(program, "V");
+    p_location = glGetUniformLocation(program, "P");
     vpos_location = glGetAttribLocation(program, "vPos");
     vnorm_location = glGetAttribLocation(program, "vNorm");
 
@@ -325,16 +326,12 @@ int main(int argc, char **argv) {
         vec4 viewer = {eye[0], eye[1], eye[2], 1.0f};
         glUniform4fv(viewer_location, 1, (const GLfloat *) viewer);
 
-
         mat4x4_look_at(v, eye, center, up);
         mat4x4_perspective(p, 45 * deg_to_rad, ratio, 0.1f, 100);
-        mat4x4_mul(mvp, p, v);
-
-        // orthographically project to screen:
-        // mat4x4_ortho(p, -ratio, ratio, -1.f, 1.f, 1.f, -1.f);
 
         // send that projection to the device, where the shader will apply it:
-        glUniformMatrix4fv(mvp_location, 1, GL_FALSE, (const GLfloat *) mvp);
+        glUniformMatrix4fv(p_location, 1, GL_FALSE, (const GLfloat *) p);
+        glUniformMatrix4fv(v_location, 1, GL_FALSE, (const GLfloat *) v);
 
         glDrawArrays(GL_TRIANGLES, 0, NumVertices);
 
