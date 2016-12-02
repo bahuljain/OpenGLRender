@@ -16,15 +16,6 @@ typedef vec4 color4;
 GLuint InitShader(const char *vertexShaderFile,
                   const char *fragmentShaderFile);
 
-
-//int NumVertices = 3;
-
-// x, y, r, g, b for each of 3 vertices.
-/*vec4 vertices[3] = {
-        {-0.25f, 0.0, 0.0, 1.0},
-        {0.25,   0.0, 0.0, 1.0},
-        {0.0,    0.5, 0.0, 1.0}};*/
-
 // viewer's position, for lighting calculations
 point4 viewer = {0.0, 0.0, -1.0f, 1.0};
 
@@ -52,7 +43,9 @@ mat4x4 ctm;
 
 // "names" for the various buffers, shaders, programs etc:
 GLuint vertex_buffer, program;
-GLint mvp_location, vpos_location, vcol_location;
+GLint mvp_location, vpos_location, vnorm_location, viewer_location;
+GLint ld_location, ls_location, la_location, lp_location;
+GLint md_location, ms_location, ma_location, mshiny_location;
 
 float theta = 0.0;  // mouse rotation around the Y (up) axis
 float posx = 0.0f;   // translation along X
@@ -78,10 +71,13 @@ void vecclear(vec4 &res) {
 }
 
 // transform the triangle's vertex data and put it into the points array.
-// also, compute the lighting at each vertex, and put that into the colors
-// array.
-void tri(vec4 vertices[], point4 points[], color4 colors[], int NumVertices) {
+// also, compute the normals at each vertex, and put that into the norms array.
+void tri(vec4 vertices[], point4 points[], vec4 norms[], int NumVertices) {
     for (int k = 0; k < NumVertices / 3; k++) {
+        mat4x4_mul_vec4(points[3 * k + 0], ctm, vertices[3 * k + 0]);
+        mat4x4_mul_vec4(points[3 * k + 1], ctm, vertices[3 * k + 1]);
+        mat4x4_mul_vec4(points[3 * k + 2], ctm, vertices[3 * k + 2]);
+
         // compute the lighting at each vertex, then set it as the color there:
 
         vec4 e1, e2, n;
@@ -91,49 +87,9 @@ void tri(vec4 vertices[], point4 points[], color4 colors[], int NumVertices) {
         n[3] = 0.f; // cross product in 4d sets this to 1.0, which we do not want
         vec4_norm(n, n);
 
-        color4 ambient_color, diffuse_color, specular_color;
-
-        vecclear(diffuse_color);
-        vecclear(specular_color);
-        vecclear(ambient_color);
-
-        color4 diffuse_product, spec_product;
-        vecproduct(ambient_color, material_ambient, light_ambient);
-        vecproduct(diffuse_product, light_diffuse, material_diffuse);
-        vecproduct(spec_product, light_specular, material_specular);
-
-
-        for (int i = 0; i < 3; i++) {
-            int index = 3 * k + i;
-
-            mat4x4_mul_vec4(points[index], ctm, vertices[index]);
-
-            vec4 light_vec, view_vec;
-            vec4_sub(light_vec, light_position, points[index]);
-            vec4_norm(light_vec, light_vec);
-
-            float dd1 = vec4_mul_inner(light_vec, n);
-            if (dd1 > 0.0)
-                vec4_scale(diffuse_color, diffuse_product, dd1);
-
-            // compute the half vector, for specular reflection:
-            vec4_sub(view_vec, viewer, points[index]);
-            vec4_norm(view_vec, view_vec);
-            vec4 half;
-            vec4_add(half, light_vec, view_vec);
-            vec4_norm(half, half);
-
-            float dd2 = vec4_mul_inner(half, n);
-
-            if (dd2 > 0.0)
-                vec4_scale(specular_color, spec_product,
-                           exp(material_shininess * log(dd2)));
-
-            vec4_add(colors[index], ambient_color, diffuse_color);
-            vec4_add(colors[index], colors[index], specular_color);
-            colors[index][3] = 1.0;
-
-        }
+        vecset(norms[3 * k + 0], n);
+        vecset(norms[3 * k + 1], n);
+        vecset(norms[3 * k + 2], n);
     }
 }
 
@@ -175,7 +131,28 @@ void init(int points_size, int colors_size) {
     // get acces to the various things we will be sending to the shaders:
     mvp_location = glGetUniformLocation(program, "MVP");
     vpos_location = glGetAttribLocation(program, "vPos");
-    vcol_location = glGetAttribLocation(program, "vCol");
+    vnorm_location = glGetAttribLocation(program, "vNorm");
+
+    ld_location = glGetUniformLocation(program, "light_diffuse");
+    ls_location = glGetUniformLocation(program, "light_specular");
+    la_location = glGetUniformLocation(program, "light_ambient");
+    lp_location = glGetUniformLocation(program, "light_position");
+    md_location = glGetUniformLocation(program, "material_diffuse");
+    ms_location = glGetUniformLocation(program, "material_specular");
+    ma_location = glGetUniformLocation(program, "material_ambient");
+    mshiny_location = glGetUniformLocation(program, "material_shininess");
+    viewer_location = glGetUniformLocation(program, "viewer");
+
+
+    glUniform4fv(ld_location, 1, (const GLfloat *) light_diffuse);
+    glUniform4fv(ls_location, 1, (const GLfloat *) light_specular);
+    glUniform4fv(la_location, 1, (const GLfloat *) light_ambient);
+    glUniform4fv(lp_location, 1, (const GLfloat *) light_position);
+    glUniform4fv(md_location, 1, (const GLfloat *) material_diffuse);
+    glUniform4fv(ms_location, 1, (const GLfloat *) material_specular);
+    glUniform4fv(ma_location, 1, (const GLfloat *) material_ambient);
+    glUniform4fv(viewer_location, 1, (const GLfloat *) viewer);
+    glUniform1f(mshiny_location, material_shininess);
 
     glEnableVertexAttribArray(vpos_location);
 
@@ -185,8 +162,8 @@ void init(int points_size, int colors_size) {
                           0, (void *) (0));
 
 
-    glEnableVertexAttribArray(vcol_location);
-    glVertexAttribPointer(vcol_location, 4, GL_FLOAT, GL_FALSE,
+    glEnableVertexAttribArray(vnorm_location);
+    glVertexAttribPointer(vnorm_location, 4, GL_FLOAT, GL_FALSE,
                           0, (void *) (long) points_size);
 }
 
@@ -251,19 +228,12 @@ int main(int argc, char **argv) {
         vertices[i][3] = 1;
     }
 
-    /*cout << NumVertices << endl;
-
-    for (int i = 0; i < NumVertices; i++) {
-        cout << vertices[i][0] << ", " << vertices[i][1] << ", "
-             << vertices[i][2] << ", " << vertices[i][3] << endl;
-    }*/
-
     // we will copy our transformed points to here:
     point4 points[NumVertices];
 
-    // and we will store the colors, per face per vertex, here. since there is
+    // and we will store the norms, per face per vertex, here. since there is
     // only 1 triangle, with 3 vertices, there will just be 3 here:
-    color4 colors[NumVertices];
+    vec4 norms[NumVertices];
 
     // if there are errors, call this routine:
     glfwSetErrorCallback(error_callback);
@@ -300,7 +270,7 @@ int main(int argc, char **argv) {
     gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
     glfwSwapInterval(1);
 
-    init(sizeof(points), sizeof(colors));
+    init(sizeof(points), sizeof(norms));
 
     // enable z-buffering if you are loading inmore than one triangle -
     // this keeps things closer to the screen drawn in front!
@@ -329,12 +299,12 @@ int main(int argc, char **argv) {
         mat4x4_rotate_Y(ctm, ctm, theta * deg_to_rad);
 
         // tri() will multiply the points by ctm, and figure out the lighting too
-        tri(&vertices[0], &points[0], &colors[0], NumVertices);
+        tri(&vertices[0], &points[0], &norms[0], NumVertices);
 
-        // tell the VBO to re-get the data from the points and colors arrays:
+        // tell the VBO to re-get the data from the points and norms arrays:
         glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(points), points);
-        glBufferSubData(GL_ARRAY_BUFFER, sizeof(points), sizeof(colors),
-                        colors);
+        glBufferSubData(GL_ARRAY_BUFFER, sizeof(points), sizeof(norms),
+                        norms);
 
         // orthographically project to screen:
         mat4x4_ortho(p, -ratio, ratio, -1.f, 1.f, 1.f, -1.f);
@@ -342,6 +312,7 @@ int main(int argc, char **argv) {
         // send that orthographic projection to the device, where the shader
         // will apply it:
         glUniformMatrix4fv(mvp_location, 1, GL_FALSE, (const GLfloat *) p);
+
         glDrawArrays(GL_TRIANGLES, 0, NumVertices);
 
         glfwSwapBuffers(window);
