@@ -17,7 +17,7 @@ GLuint InitShader(const char *vertexShaderFile,
                   const char *fragmentShaderFile);
 
 // viewer's position, for lighting calculations
-point4 viewer = {0.0, 0.0, -1.0f, 1.0};
+//point4 viewer = {0.0, 0.0, -10.0f, 1.0};
 
 // light & material definitions, again for lighting calculations:
 point4 light_position = {0.0, 0.0, -1.0f, 1.0};
@@ -37,17 +37,15 @@ float material_shininess = 100.0;
 // only 1 triangle, with 3 vertices, there will just be 3 here:
 //color4 colors[NumVertices];
 
-// a transformation matrix, for the rotation, which we will apply to every
-// vertex:
-mat4x4 ctm;
-
 // "names" for the various buffers, shaders, programs etc:
 GLuint vertex_buffer, program;
 GLint mvp_location, vpos_location, vnorm_location, viewer_location;
 GLint ld_location, ls_location, la_location, lp_location;
 GLint md_location, ms_location, ma_location, mshiny_location;
 
-float theta = 0.0;  // mouse rotation around the Y (up) axis
+float theta = 0.0f;  // mouse rotation around the Y (up) axis (longitude)
+float phi = 0.0f;    // mouse rotation around the X (right) axis (latitude)
+float r = -5.0f;      // translation along Z axis
 float posx = 0.0f;   // translation along X
 float posy = 0.0f;   // translation along Y
 
@@ -74,9 +72,9 @@ void vecclear(vec4 &res) {
 // also, compute the normals at each vertex, and put that into the norms array.
 void tri(vec4 vertices[], point4 points[], vec4 norms[], int NumVertices) {
     for (int k = 0; k < NumVertices / 3; k++) {
-        mat4x4_mul_vec4(points[3 * k + 0], ctm, vertices[3 * k + 0]);
-        mat4x4_mul_vec4(points[3 * k + 1], ctm, vertices[3 * k + 1]);
-        mat4x4_mul_vec4(points[3 * k + 2], ctm, vertices[3 * k + 2]);
+        vecset(points[3 * k + 0], vertices[3 * k + 0]);
+        vecset(points[3 * k + 1], vertices[3 * k + 1]);
+        vecset(points[3 * k + 2], vertices[3 * k + 2]);
 
         // compute the lighting at each vertex, then set it as the color there:
 
@@ -151,7 +149,6 @@ void init(int points_size, int colors_size) {
     glUniform4fv(md_location, 1, (const GLfloat *) material_diffuse);
     glUniform4fv(ms_location, 1, (const GLfloat *) material_specular);
     glUniform4fv(ma_location, 1, (const GLfloat *) material_ambient);
-    glUniform4fv(viewer_location, 1, (const GLfloat *) viewer);
     glUniform1f(mshiny_location, material_shininess);
 
     glEnableVertexAttribArray(vpos_location);
@@ -175,11 +172,22 @@ static void mouse_move_rotate(GLFWwindow *window, double x, double y) {
 
     int amntX = (int) (x - lastx);
     if (amntX != 0) {
-        theta += amntX;
+        theta += amntX / 100.0;
         if (theta > 360.0) theta -= 360.0;
         if (theta < 0.0) theta += 360.0;
 
         lastx = (int) x;
+    }
+
+    static int lasty = 0;// keep track of where the mouse was last:
+
+    int amntY = (int) (y - lasty);
+    if (amntY != 0) {
+        phi += amntY / 100.0;
+        if (phi > 360.0) phi -= 360.0;
+        if (phi < 0.0) phi += 360.0;
+
+        lasty = (int) y;
     }
 
     //  std::cout << theta << std::endl;
@@ -277,10 +285,18 @@ int main(int argc, char **argv) {
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
 
+    // tri() will multiply the points by ctm, and figure out the lighting too
+    tri(&vertices[0], &points[0], &norms[0], NumVertices);
+
+    // tell the VBO to re-get the data from the points and norms arrays:
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(points), points);
+    glBufferSubData(GL_ARRAY_BUFFER, sizeof(points), sizeof(norms),
+                    norms);
+
     while (!glfwWindowShouldClose(window)) {
         float ratio;
         int width, height;
-        mat4x4 p;
+        mat4x4 mvp, p, v;
 
         // in case the  window viewport size changed, we will need to adjust the
         // projection:
@@ -293,25 +309,26 @@ int main(int argc, char **argv) {
         glClearColor(1.0, 1.0, 1.0, 1.0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        vec3 up = {0, 1.0f, 0};
+        vec3 center = {0, 0, 0};
 
-        // make up a transform that rotates around screen "Z" with time:
-        mat4x4_identity(ctm);
-        mat4x4_rotate_Y(ctm, ctm, theta * deg_to_rad);
+        vec3 eye = {r * sinf(theta),
+                          r * sinf(phi),
+                          r * cosf(theta) * cosf(phi)};
 
-        // tri() will multiply the points by ctm, and figure out the lighting too
-        tri(&vertices[0], &points[0], &norms[0], NumVertices);
+        vec4 viewer = {eye[0], eye[1], eye[2], 1.0f};
+        glUniform4fv(viewer_location, 1, (const GLfloat *) viewer);
 
-        // tell the VBO to re-get the data from the points and norms arrays:
-        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(points), points);
-        glBufferSubData(GL_ARRAY_BUFFER, sizeof(points), sizeof(norms),
-                        norms);
+
+        mat4x4_look_at(v, eye, center, up);
+        mat4x4_perspective(p, 45 * deg_to_rad, ratio, 0.1f, 100);
+        mat4x4_mul(mvp, p, v);
 
         // orthographically project to screen:
-        mat4x4_ortho(p, -ratio, ratio, -1.f, 1.f, 1.f, -1.f);
+        // mat4x4_ortho(p, -ratio, ratio, -1.f, 1.f, 1.f, -1.f);
 
-        // send that orthographic projection to the device, where the shader
-        // will apply it:
-        glUniformMatrix4fv(mvp_location, 1, GL_FALSE, (const GLfloat *) p);
+        // send that projection to the device, where the shader will apply it:
+        glUniformMatrix4fv(mvp_location, 1, GL_FALSE, (const GLfloat *) mvp);
 
         glDrawArrays(GL_TRIANGLES, 0, NumVertices);
 
