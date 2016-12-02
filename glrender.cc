@@ -99,6 +99,12 @@ static void
 key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GLFW_TRUE);
+
+    if (key == GLFW_KEY_X && action == GLFW_PRESS)
+        r = fmaxf(-100f, r - 0.5f);
+
+    if (key == GLFW_KEY_Z && action == GLFW_PRESS)
+        r = fminf(-0.5f, r + 0.5f);
 }
 
 void init(int points_size, int colors_size) {
