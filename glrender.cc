@@ -33,7 +33,7 @@ GLint p_location, v_location, vpos_location, vnorm_location, viewer_location;
 GLint ld_location, ls_location, la_location, lp_location;
 GLint md_location, ms_location, ma_location, mshiny_location;
 
-float theta = 20.0f;  // angle with the z axis
+float theta = 0.0f;  // angle with the z axis
 float phi = 90.0;    // angle with the Y axis
 float r = 10.0f;      // distance of viewer from origin
 float posx = 0.0f;   // translation along X
@@ -142,7 +142,7 @@ void init(int points_size, int colors_size) {
 
 static void mouse_move_rotate(GLFWwindow *window, double x, double y) {
 
-    static int lastx = 0;// keep track of where the mouse was last:
+    static int lastx = x;// keep track of where the mouse was last:
 
     int amntX = (int) (x - lastx);
     if (amntX != 0) {
@@ -153,7 +153,7 @@ static void mouse_move_rotate(GLFWwindow *window, double x, double y) {
         lastx = (int) x;
     }
 
-    static int lasty = 0;// keep track of where the mouse was last:
+    static int lasty = y;// keep track of where the mouse was last:
 
     int amntY = (int) (y - lasty);
     if (amntY != 0) {
