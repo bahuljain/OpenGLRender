@@ -33,13 +33,14 @@ GLint p_location, v_location, vpos_location, vnorm_location, viewer_location;
 GLint ld_location, ls_location, la_location, lp_location;
 GLint md_location, ms_location, ma_location, mshiny_location;
 
-float theta = 0.0f;  // mouse rotation around the Y (up) axis (longitude)
-float phi = 0.0f;    // mouse rotation around the X (right) axis (latitude)
-float r = 5.0f;      // translation along Z axis
+float theta = 20.0f;  // angle with the z axis
+float phi = 90.0;    // angle with the Y axis
+float r = 10.0f;      // distance of viewer from origin
 float posx = 0.0f;   // translation along X
 float posy = 0.0f;   // translation along Y
 
-// transform the triangle's vertex data and Put it into the points array.
+// transform th
+// e triangle's vertex data and Put it into the points array.
 // also, compute the normals at each vertex, and put that into the norms array.
 void tri(vec4 vertices[], point4 points[], vec4 norms[], int NumVertices) {
     for (int k = 0; k < NumVertices / 3; k++) {
@@ -145,7 +146,7 @@ static void mouse_move_rotate(GLFWwindow *window, double x, double y) {
 
     int amntX = (int) (x - lastx);
     if (amntX != 0) {
-        theta += amntX / 100.0;
+        theta += amntX;
         if (theta > 360.0) theta -= 360.0;
         if (theta < 0.0) theta += 360.0;
 
@@ -156,9 +157,9 @@ static void mouse_move_rotate(GLFWwindow *window, double x, double y) {
 
     int amntY = (int) (y - lasty);
     if (amntY != 0) {
-        phi += amntY / 100.0;
-        if (phi > 360.0) phi -= 360.0;
-        if (phi < 0.0) phi += 360.0;
+        phi += amntY;
+        if (phi > 175.0) phi = 175.0;
+        if (phi < 5.0) phi = 5.0;
 
         lasty = (int) y;
     }
@@ -261,10 +262,14 @@ int main(int argc, char **argv) {
         vec3 up = {0, 1.0f, 0};
         vec3 center = {0, 0, 0};
 
-        vec3 eye = {r * sinf(theta), r * sinf(-phi),
-                    r * cosf(theta) * cosf(-phi)};
 
-        vec4 viewer = {eye[0], eye[1], eye[2], 1.0f};
+        float x = r * sinf(theta * deg_to_rad) * sinf(phi * deg_to_rad);
+        float y = r * cosf(phi * deg_to_rad);
+        float z = r * cosf(theta * deg_to_rad) * sinf(phi * deg_to_rad);
+
+        vec3 eye = {x, y ,z};
+
+        vec4 viewer = {x, y, z, 1.0f};
         glUniform4fv(viewer_location, 1, (const GLfloat *) viewer);
 
         mat4x4_look_at(v, eye, center, up);
