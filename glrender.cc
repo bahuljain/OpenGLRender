@@ -1,12 +1,9 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-
-#include "linmath.h"
-
+#include "include/helper.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <iostream>
-
 #include "include/parser.h"
 
 typedef vec4 point4;
@@ -20,7 +17,7 @@ GLuint InitShader(const char *vertexShaderFile,
 //point4 viewer = {0.0, 0.0, -10.0f, 1.0};
 
 // light & material definitions, again for lighting calculations:
-point4 light_position = {0.0, 0.0, -1.0f, 1.0};
+point4 light_position = {100.0, 100.0, 100.0f, 1.0};
 color4 light_ambient = {0.2, 0.2, 0.2, 1.0};
 color4 light_diffuse = {1.0, 1.0, 1.0, 1.0};
 color4 light_specular = {1.0, 1.0, 1.0, 1.0};
@@ -30,13 +27,6 @@ color4 material_diffuse = {1.0, 0.8, 0.0, 1.0};
 color4 material_specular = {1.0, 0.8, 0.0, 1.0};
 float material_shininess = 100.0;
 
-// we will copy our transformed points to here:
-//point4 points[NumVertices];
-
-// and we will store the colors, per face per vertex, here. since there is
-// only 1 triangle, with 3 vertices, there will just be 3 here:
-//color4 colors[NumVertices];
-
 // "names" for the various buffers, shaders, programs etc:
 GLuint vertex_buffer, program;
 GLint p_location, v_location, vpos_location, vnorm_location, viewer_location;
@@ -45,30 +35,11 @@ GLint md_location, ms_location, ma_location, mshiny_location;
 
 float theta = 0.0f;  // mouse rotation around the Y (up) axis (longitude)
 float phi = 0.0f;    // mouse rotation around the X (right) axis (latitude)
-float r = -5.0f;      // translation along Z axis
+float r = 5.0f;      // translation along Z axis
 float posx = 0.0f;   // translation along X
 float posy = 0.0f;   // translation along Y
 
-const float deg_to_rad = (3.1415926f / 180.0f);
-
-
-// three helper functions for the vec4 class:
-void vecproduct(vec4 &res, const vec4 &v1, const vec4 &v2) {
-    for (int i = 0; i < 4; ++i)
-        res[i] = v1[i] * v2[i];
-}
-
-void vecset(vec4 &res, const vec4 &v1) {
-    for (int i = 0; i < 4; ++i)
-        res[i] = v1[i];
-}
-
-void vecclear(vec4 &res) {
-    for (int i = 0; i < 4; ++i)
-        res[i] = 0.0;
-}
-
-// transform the triangle's vertex data and put it into the points array.
+// transform the triangle's vertex data and Put it into the points array.
 // also, compute the normals at each vertex, and put that into the norms array.
 void tri(vec4 vertices[], point4 points[], vec4 norms[], int NumVertices) {
     for (int k = 0; k < NumVertices / 3; k++) {
@@ -101,10 +72,10 @@ key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {
         glfwSetWindowShouldClose(window, GLFW_TRUE);
 
     if (key == GLFW_KEY_X && action == GLFW_PRESS)
-        r = fmaxf(-100, r - 0.5f);
+        r = fminf(50, r + 0.5f);
 
     if (key == GLFW_KEY_Z && action == GLFW_PRESS)
-        r = fminf(-0.5f, r + 0.5f);
+        r = fmaxf(3, r - 0.5f);
 }
 
 void init(int points_size, int colors_size) {
@@ -137,7 +108,6 @@ void init(int points_size, int colors_size) {
     p_location = glGetUniformLocation(program, "P");
     vpos_location = glGetAttribLocation(program, "vPos");
     vnorm_location = glGetAttribLocation(program, "vNorm");
-
     ld_location = glGetUniformLocation(program, "light_diffuse");
     ls_location = glGetUniformLocation(program, "light_specular");
     la_location = glGetUniformLocation(program, "light_ambient");
@@ -147,7 +117,6 @@ void init(int points_size, int colors_size) {
     ma_location = glGetUniformLocation(program, "material_ambient");
     mshiny_location = glGetUniformLocation(program, "material_shininess");
     viewer_location = glGetUniformLocation(program, "viewer");
-
 
     glUniform4fv(ld_location, 1, (const GLfloat *) light_diffuse);
     glUniform4fv(ls_location, 1, (const GLfloat *) light_specular);
@@ -165,14 +134,11 @@ void init(int points_size, int colors_size) {
     glVertexAttribPointer(vpos_location, 4, GL_FLOAT, GL_FALSE,
                           0, (void *) (0));
 
-
     glEnableVertexAttribArray(vnorm_location);
     glVertexAttribPointer(vnorm_location, 4, GL_FLOAT, GL_FALSE,
                           0, (void *) (long) points_size);
 }
 
-// use this motionfunc to demonstrate rotation - it adjusts "theta" based
-// on how the mouse has moved.
 static void mouse_move_rotate(GLFWwindow *window, double x, double y) {
 
     static int lastx = 0;// keep track of where the mouse was last:
@@ -199,30 +165,6 @@ static void mouse_move_rotate(GLFWwindow *window, double x, double y) {
 
     //  std::cout << theta << std::endl;
 }
-
-// use this motionfunc to demonstrate translation - it adjusts posx and
-// posy based on the mouse movement. posx and posy are then used in the
-// display loop to generate the transformation that is applied
-// to all the vertices before they are displayed:
-static void mouse_move_translate(GLFWwindow *window, double x, double y) {
-
-    static int lastx = 0;
-    static int lasty = 0;
-
-    // if we want relative motion, keep track of where the mouse was last:
-//
-//    if (x - lastx < 0) --posx;
-//    else if (x - lastx > 0) ++posx;
-//    lastx = x;
-//
-//    if (y - lasty < 0) --posy;
-//    else if (y - lasty > 0) ++posy;
-//    lasty = y;
-
-    posx = (float) x;
-    posy = (float) -y;
-}
-
 
 int main(int argc, char **argv) {
 
@@ -295,7 +237,7 @@ int main(int argc, char **argv) {
     // tri() will multiply the points by ctm, and figure out the lighting too
     tri(&vertices[0], &points[0], &norms[0], NumVertices);
 
-    // tell the VBO to re-get the data from the points and norms arrays:
+    // tell the VBO to get the data from the points and norms arrays:
     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(points), points);
     glBufferSubData(GL_ARRAY_BUFFER, sizeof(points), sizeof(norms),
                     norms);
@@ -303,7 +245,7 @@ int main(int argc, char **argv) {
     while (!glfwWindowShouldClose(window)) {
         float ratio;
         int width, height;
-        mat4x4 mvp, p, v;
+        mat4x4 p, v;
 
         // in case the  window viewport size changed, we will need to adjust the
         // projection:
@@ -319,15 +261,14 @@ int main(int argc, char **argv) {
         vec3 up = {0, 1.0f, 0};
         vec3 center = {0, 0, 0};
 
-        vec3 eye = {r * sinf(theta),
-                          r * sinf(phi),
-                          r * cosf(theta) * cosf(phi)};
+        vec3 eye = {r * sinf(theta), r * sinf(-phi),
+                    r * cosf(theta) * cosf(-phi)};
 
         vec4 viewer = {eye[0], eye[1], eye[2], 1.0f};
         glUniform4fv(viewer_location, 1, (const GLfloat *) viewer);
 
         mat4x4_look_at(v, eye, center, up);
-        mat4x4_perspective(p, 45 * deg_to_rad, ratio, 0.1f, 100);
+        mat4x4_perspective(p, 30 * deg_to_rad, ratio, 0.1f, 100);
 
         // send that projection to the device, where the shader will apply it:
         glUniformMatrix4fv(p_location, 1, GL_FALSE, (const GLfloat *) p);
