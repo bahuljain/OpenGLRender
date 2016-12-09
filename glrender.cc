@@ -14,6 +14,8 @@ typedef vec4 color4;
 GLuint InitShader(const char *vertexShaderFile,
                   const char *fragmentShaderFile);
 
+bool frag = true;
+
 // viewer's position, for lighting calculations
 //point4 viewer = {0.0, 0.0, -10.0f, 1.0};
 
@@ -29,7 +31,7 @@ color4 material_specular = {1.0, 0.8, 0.0, 1.0};
 float material_shininess = 100.0;
 
 // "names" for the various buffers, shaders, programs etc:
-GLuint vertex_buffer, program;
+GLuint vertex_buffer, program, fragment;
 GLint p_location, v_location, vpos_location, vnorm_location, viewer_location;
 GLint ld_location, ls_location, la_location, lp_location;
 GLint md_location, ms_location, ma_location, mshiny_location;
@@ -54,6 +56,9 @@ key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {
 
     if (key == GLFW_KEY_Z && action == GLFW_PRESS)
         r = fmaxf(3, r - 0.5f);
+
+    if (key == GLFW_KEY_S && action == GLFW_PRESS)
+        frag = !frag;
 }
 
 void init(int points_size, int colors_size) {
@@ -82,6 +87,7 @@ void init(int points_size, int colors_size) {
     glUseProgram(program);
 
     // get acces to the various things we will be sending to the shaders:
+    fragment = glGetUniformLocation(program, "frag");
     v_location = glGetUniformLocation(program, "V");
     p_location = glGetUniformLocation(program, "P");
     vpos_location = glGetAttribLocation(program, "vPos");
@@ -104,6 +110,7 @@ void init(int points_size, int colors_size) {
     glUniform4fv(ms_location, 1, (const GLfloat *) material_specular);
     glUniform4fv(ma_location, 1, (const GLfloat *) material_ambient);
     glUniform1f(mshiny_location, material_shininess);
+    glUniform1i(fragment, frag);
 
     glEnableVertexAttribArray(vpos_location);
 
@@ -258,6 +265,7 @@ int main(int argc, char **argv) {
         // send that projection to the device, where the shader will apply it:
         glUniformMatrix4fv(p_location, 1, GL_FALSE, (const GLfloat *) p);
         glUniformMatrix4fv(v_location, 1, GL_FALSE, (const GLfloat *) v);
+        glUniform1i(fragment, frag);
 
         glDrawArrays(GL_TRIANGLES, 0, NumVertices);
 
