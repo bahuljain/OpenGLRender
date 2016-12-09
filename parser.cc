@@ -5,7 +5,6 @@
 
 #include <fstream>
 #include <sstream>
-#include <initializer_list>
 
 using namespace std;
 
@@ -88,15 +87,21 @@ void read_wavefront_file(
     //   std::cout << "found this many tris, verts: " << tris.size () / 3.0 << "  " << verts.size () / 3.0 << std::endl;
 }
 
-int parseObjFile(string filename, vector<float> &vertices) {
+int parseObjFile(string filename, vector<float> &vertices,
+                 vector<Vector> &vertex_norms) {
     vector<int> tris;
     vector<float> verts;
 
     read_wavefront_file(filename.c_str(), tris, verts);
+    Vector vertex_normals[verts.size()/3];
+
+    for (unsigned int i = 0; i < verts.size() / 3; i++)
+        vertex_normals[i] = {0, 0, 0};
 
     for (unsigned int i = 0; i < tris.size() / 3; i++) {
         int v1, v2, v3;
         float x1, y1, z1, x2, y2, z2, x3, y3, z3;
+        Vector e1, e2, n;
 
         v1 = tris[3 * i];
         v2 = tris[3 * i + 1];
@@ -105,14 +110,25 @@ int parseObjFile(string filename, vector<float> &vertices) {
         x1 = verts[3 * v1];
         y1 = verts[3 * v1 + 1];
         z1 = verts[3 * v1 + 2];
+        Vector p1 (x1, y1, z1);
 
         x2 = verts[3 * v2];
         y2 = verts[3 * v2 + 1];
         z2 = verts[3 * v2 + 2];
+        Vector p2 (x2, y2, z2);
 
         x3 = verts[3 * v3];
         y3 = verts[3 * v3 + 1];
         z3 = verts[3 * v3 + 2];
+        Vector p3 (x3, y3, z3);
+
+        e1 = p2.plus(-p1);
+        e2 = p3.plus(-p1);
+        n = e1.cross(e2).norm();
+
+        vertex_normals[v1].plusEq(n);
+        vertex_normals[v2].plusEq(n);
+        vertex_normals[v3].plusEq(n);
 
         vertices.push_back(x1);
         vertices.push_back(y1);
@@ -123,6 +139,17 @@ int parseObjFile(string filename, vector<float> &vertices) {
         vertices.push_back(x3);
         vertices.push_back(y3);
         vertices.push_back(z3);
+    }
+
+    for (unsigned int i = 0; i < verts.size() / 3; i++) {
+        if (!vertex_normals[i].equals(Vector(0, 0, 0)))
+            vertex_normals[i] = vertex_normals[i].norm();
+    }
+
+    for (unsigned int i = 0; i < tris.size() / 3; i++) {
+        vertex_norms.push_back(vertex_normals[tris[3 * i]]);
+        vertex_norms.push_back(vertex_normals[tris[3 * i + 1]]);
+        vertex_norms.push_back(vertex_normals[tris[3 * i + 2]]);
     }
 
     return (int) tris.size();

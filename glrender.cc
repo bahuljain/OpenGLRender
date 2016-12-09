@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <iostream>
 #include "include/parser.h"
+#include "include/Vector.h"
 
 typedef vec4 point4;
 typedef vec4 color4;
@@ -38,30 +39,6 @@ float phi = 90.0;    // angle with the Y axis
 float r = 10.0f;      // distance of viewer from origin
 float posx = 0.0f;   // translation along X
 float posy = 0.0f;   // translation along Y
-
-// transform th
-// e triangle's vertex data and Put it into the points array.
-// also, compute the normals at each vertex, and put that into the norms array.
-void tri(vec4 vertices[], point4 points[], vec4 norms[], int NumVertices) {
-    for (int k = 0; k < NumVertices / 3; k++) {
-        vecset(points[3 * k + 0], vertices[3 * k + 0]);
-        vecset(points[3 * k + 1], vertices[3 * k + 1]);
-        vecset(points[3 * k + 2], vertices[3 * k + 2]);
-
-        // compute the lighting at each vertex, then set it as the color there:
-
-        vec4 e1, e2, n;
-        vec4_sub(e1, points[3 * k + 1], points[3 * k]);
-        vec4_sub(e2, points[3 * k + 2], points[3 * k]);
-        vec4_mul_cross(n, e1, e2);
-        n[3] = 0.f; // cross product in 4d sets this to 1.0, which we do not want
-        vec4_norm(n, n);
-
-        vecset(norms[3 * k + 0], n);
-        vecset(norms[3 * k + 1], n);
-        vecset(norms[3 * k + 2], n);
-    }
-}
 
 static void error_callback(int error, const char *description) {
     fprintf(stderr, "Error: %s\n", description);
@@ -175,16 +152,10 @@ int main(int argc, char **argv) {
     }
 
     vector<float> verts;
-    const int NumVertices = parseObjFile(argv[1], verts);
+    vector<Vector> vertex_normals;
+    const int NumVertices = parseObjFile(argv[1], verts, vertex_normals);
 
-    vec4 vertices[NumVertices];
-
-    for (int i = 0; i < NumVertices; i++) {
-        vertices[i][0] = verts[3 * i];
-        vertices[i][1] = verts[3 * i + 1];
-        vertices[i][2] = verts[3 * i + 2];
-        vertices[i][3] = 1;
-    }
+//    vec4 vertices[NumVertices];
 
     // we will copy our transformed points to here:
     point4 points[NumVertices];
@@ -192,6 +163,18 @@ int main(int argc, char **argv) {
     // and we will store the norms, per face per vertex, here. since there is
     // only 1 triangle, with 3 vertices, there will just be 3 here:
     vec4 norms[NumVertices];
+
+    for (int i = 0; i < NumVertices; i++) {
+        points[i][0] = verts[3 * i];
+        points[i][1] = verts[3 * i + 1];
+        points[i][2] = verts[3 * i + 2];
+        points[i][3] = 1;
+
+        norms[i][0] = vertex_normals[i].i;
+        norms[i][1] = vertex_normals[i].j;
+        norms[i][2] = vertex_normals[i].k;
+        norms[i][3] = 0;
+    }
 
     // if there are errors, call this routine:
     glfwSetErrorCallback(error_callback);
@@ -234,9 +217,6 @@ int main(int argc, char **argv) {
     // this keeps things closer to the screen drawn in front!
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
-
-    // tri() will multiply the points by ctm, and figure out the lighting too
-    tri(&vertices[0], &points[0], &norms[0], NumVertices);
 
     // tell the VBO to get the data from the points and norms arrays:
     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(points), points);

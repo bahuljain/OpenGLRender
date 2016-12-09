@@ -5,6 +5,7 @@
 #include <vector>
 #include <iostream>
 #include <linmath.h>
+#include "Vector.h"
 
 using namespace std;
 
@@ -18,4 +19,5 @@ void read_wavefront_file(
         std::vector<int> &tris,
         std::vector<float> &verts);
 
-int parseObjFile(string filename, vector<float> &vertices);
+int parseObjFile(string filename, vector<float> &vertices,
+                 vector<Vector> &vertex_norms);
